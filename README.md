@@ -141,7 +141,7 @@ const subjects = createSubjects({
 })
 ```
 
-Note we are using [valibot](https://github.com/Valibot/valibot) to define the shape of the subject so it can be validated properly. You can use any validation library that is following the [standard-schema specification](https://github.com/standard-schema/standard-schema) - the next version of Zod will support this.
+Note we are using [valibot](https://github.com/fabian-hiller/valibot) to define the shape of the subject so it can be validated properly. You can use any validation library that is following the [standard-schema specification](https://github.com/standard-schema/standard-schema) - the next version of Zod will support this.
 
 You typically will want to place subjects in its own file as it can be imported by all of your apps. You can pass it to the authorizer in the `subjects` field.
 
@@ -162,17 +162,18 @@ const app = authorizer({
   providers: { ... },
   subjects,
   async success(ctx, value) {
-    let userid;
+    let userID;
     if (value.provider === "password") {
       console.log(value.email);
-      userid = ... // lookup user or create them
+      userID = ... // lookup user or create them
     }
     if (value.provider === "github") {
       console.log(value.tokenset.access);
-      userid = ... // lookup user or create them
+      userID = ... // lookup user or create them
     }
     return ctx.subject("user", {
-        userid,
+      userID,
+      'a workspace id'
     });
   }
 })
@@ -220,7 +221,8 @@ Since this is a standard OAuth server you can use any libraries for OAuth and it
 ```ts
 import { createClient } from "@openauthjs/openauth/client"
 
-const client = createClient("my-client", {
+const client = createClient({
+  clientID: "my-client",
   issuer: "https://auth.myserver.com", // this is the url for your auth server
 })
 ```
@@ -230,7 +232,7 @@ const client = createClient("my-client", {
 If your frontend has a server component you can use the code flow. Redirect the user here
 
 ```ts
-const redirect = await client.authorize(
+const { url } = await client.authorize(
   <client-id>,
   <redirect-uri>,
   "code",
@@ -265,18 +267,23 @@ Passing in the refresh token is optional but if you do, this function will autom
 In cases where you do not have a server, you can use the `token` flow with `pkce` on the frontend.
 
 ```ts
-const [verifier, redirect] = await client.pkce(<client_id>, <redirect_uri>);
-localStorage.setItem("verifier", verifier);
-location.href = redirect;
+const { challenge, url } = await client.authorize(<client_id>, <redirect_uri>, { pkce: true });
+localStorage.setItem("challenge", JSON.stringify(challenge));
+location.href = url;
 ```
 
 When the auth flow is complete the user's browser will be redirected to the `redirect_uri` with a `code` query parameter. You can then exchange the code for access/refresh tokens.
 
 ```ts
-const verifier = localStorage.getItem("verifier")
-const tokens = await client.exchange(query.get("code"), redirect_uri, verifier)
-localStorage.setItem("access_token", tokens.access)
-localStorage.setItem("refresh_token", tokens.refresh)
+const challenge = JSON.parse(localStorage.getItem("challenge"))
+const exchanged = await client.exchange(
+  query.get("code"),
+  redirect_uri,
+  challenge.verifier,
+)
+if (exchanged.err) throw new Error("Invalid code")
+localStorage.setItem("access_token", exchanged.tokens.access)
+localStorage.setItem("refresh_token", exchanged.tokens.refresh)
 ```
 
 Then when you make requests to your API you can include the access token in the `Authorization` header.

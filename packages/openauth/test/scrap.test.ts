@@ -56,25 +56,29 @@ test("code flow", async () => {
   const location = new URL(response.headers.get("location")!)
   const code = location.searchParams.get("code")
   expect(code).not.toBeNull()
-  const tokens = await client.exchange(
+  const exchanged = await client.exchange(
     code!,
     "https://client.example.com/callback",
     verifier,
   )
-  expect(tokens.access).toBeTruthy()
-  expect(tokens.refresh).toBeTruthy()
-  const verified = await client.verify(subjects, tokens.access)
+  if (exchanged.err) throw exchanged.err
+  expect(exchanged.tokens.access).toBeTruthy()
+  expect(exchanged.tokens.refresh).toBeTruthy()
+  const verified = await client.verify(subjects, exchanged.tokens.access)
+  if (verified.err) throw verified.err
   expect(verified.subject.type).toBe("user")
   if (verified.subject.type !== "user") throw new Error("Invalid subject")
   expect(verified.subject.properties.userID).toBe("123")
   await new Promise((resolve) => setTimeout(resolve, 2000))
-  expect(client.verify(subjects, tokens.access)).rejects.toThrow()
-  const next = await client.verify(subjects, tokens.access, {
-    refresh: tokens.refresh,
+  const failed = await client.verify(subjects, exchanged.tokens.access)
+  expect(failed.err).toBeInstanceOf(Error)
+  const next = await client.verify(subjects, exchanged.tokens.access, {
+    refresh: exchanged.tokens.refresh,
   })
-  expect(next.access).toBeDefined()
-  expect(next.refresh).toBeDefined()
-  expect(next.access).not.toEqual(tokens.access)
-  expect(next.refresh).not.toEqual(tokens.refresh)
-  await client.verify(subjects, next.access!)
+  if (next.err) throw next.err
+  expect(next.tokens?.access).toBeDefined()
+  expect(next.tokens?.refresh).toBeDefined()
+  expect(next.tokens?.access).not.toEqual(exchanged.tokens.access)
+  expect(next.tokens?.refresh).not.toEqual(exchanged.tokens.refresh)
+  await client.verify(subjects, next.tokens!.access!)
 })

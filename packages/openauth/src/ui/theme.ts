@@ -1,25 +1,15 @@
+export interface ColorScheme {
+  dark: string
+  light: string
+}
+
 export interface Theme {
   title?: string
   favicon?: string
   radius?: "none" | "sm" | "md" | "lg" | "full"
-  primary:
-    | string
-    | {
-        dark: string
-        light: string
-      }
-  background?:
-    | string
-    | {
-        dark: string
-        light: string
-      }
-  logo?:
-    | string
-    | {
-        dark: string
-        light: string
-      }
+  primary: string | ColorScheme
+  background?: string | ColorScheme
+  logo?: string | ColorScheme
   font?: {
     family?: string
     scale?: string
@@ -48,6 +38,9 @@ export const THEME_TERMINAL: Theme = {
   `,
 }
 
+/**
+ * Built-in theme styled after SST
+ */
 export const THEME_SST: Theme = {
   title: "SST",
   logo: {

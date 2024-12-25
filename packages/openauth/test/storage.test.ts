@@ -1,10 +1,16 @@
+import { afterEach, setSystemTime } from "bun:test"
 import { beforeEach, describe, expect, test } from "bun:test"
-import { MemoryStorage } from "../src/storage/memory"
+import { MemoryStorage } from "../src/storage/memory.js"
 
 let storage = MemoryStorage()
 
 beforeEach(async () => {
   storage = MemoryStorage()
+  setSystemTime(new Date("1/1/2024"))
+})
+
+afterEach(() => {
+  setSystemTime()
 })
 
 describe("set", () => {
@@ -15,11 +21,15 @@ describe("set", () => {
   })
 
   test("ttl", async () => {
-    await storage.set(["temp", "key"], { value: "value" }, 0.1) // 100ms TTL
+    await storage.set(
+      ["temp", "key"],
+      { value: "value" },
+      new Date(Date.now() + 100),
+    ) // 100ms TTL
     let result = await storage.get(["temp", "key"])
     expect(result?.value).toBe("value")
 
-    await new Promise((resolve) => setTimeout(resolve, 150))
+    setSystemTime(Date.now() + 150)
     result = await storage.get(["temp", "key"])
     expect(result).toBeUndefined()
   })
@@ -74,11 +84,11 @@ describe("scan", () => {
   })
 
   test("ttl", async () => {
-    await storage.set(["temp", "1"], "a", 0.1)
-    await storage.set(["temp", "2"], "b", 0.1)
+    await storage.set(["temp", "1"], "a", new Date(Date.now() + 100))
+    await storage.set(["temp", "2"], "b", new Date(Date.now() + 100))
     await storage.set(["temp", "3"], "c")
     expect(await Array.fromAsync(storage.scan(["temp"]))).toHaveLength(3)
-    await new Promise((resolve) => setTimeout(resolve, 150))
+    setSystemTime(Date.now() + 150)
     expect(await Array.fromAsync(storage.scan(["temp"]))).toHaveLength(1)
   })
 })
